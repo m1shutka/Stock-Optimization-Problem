@@ -13,6 +13,7 @@ def btn_click2():
     quantity = entry.get()
     optimizator.get('2', int(quantity))
     set_buttons()
+    set_labels()
 
 def btn_click3():
     quantity = entry.get()
@@ -92,6 +93,13 @@ def btn_click15():
     set_buttons()
     set_labels()
 
+def btn_mov_click():
+    id1 = entry1.get()
+    id2 = entry2.get()
+    optimizator.movement(id1, id2)
+    set_buttons()
+    set_labels()
+
 def load_stock_data():
         with open("Stock.txt", "r", encoding="UTF-8") as file:
             text = list(map(int, file.read().split()))
@@ -123,6 +131,7 @@ def set_labels():
     label1['text'] = f'Возможные перестановки: {result}'
 
     buf = optimizator.get_buf()
+    print(f'gui -{buf}')
     result = ''
     for i in buf:
         result += str(i[0]) + ': ' + str(i[1]) + ', '
@@ -169,8 +178,11 @@ if  __name__ == "__main__":
     btn15.place(x=300, y=160, width = 60, height = 60)
     set_buttons()
 
+
+    label3 = ttk.Label(text="Сколько взять:")
+    label3.place(x = 370, y = 20)
     entry = ttk.Entry()
-    entry.place(x=370, y = 20, width = 60)
+    entry.place(x=370, y = 40, width = 80)
 
     label1 = ttk.Label(text="Возможные перестановки:")
     label1.place(x = 20, y = 230)
@@ -178,5 +190,14 @@ if  __name__ == "__main__":
     label2 = ttk.Label(text="Буфер:")
     label2.place(x = 20, y = 270)
     set_labels()
+
+    label3 = ttk.Label(text="Перестановка:")
+    label3.place(x = 370, y = 90)
+    entry1 = ttk.Entry()
+    entry1.place(x=370, y = 110, width = 30)
+    entry2 = ttk.Entry()
+    entry2.place(x=405, y = 110, width = 30)
+    btn_mov = ttk.Button(text="Переставить", command=btn_mov_click)
+    btn_mov.place(x=370, y=140, width = 80, height = 30)
 
     root.mainloop()

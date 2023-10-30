@@ -6,7 +6,8 @@ class Optimizator():
         self.__load_buf()
         self.__adress = file_name
         self.__max_quantity = 50
-        self.__movements = []
+        self.__movements = self.__movement_check()
+        
 
     def get(self, id, quantity):
         """Берем из ячейки <id> количество <quantity>"""
@@ -16,6 +17,7 @@ class Optimizator():
                 ###Логику дописать
                 text[i + 1] = text[i + 1] - quantity
                 self.__add_in_buf(Cell(str(text[i]), text[i + 1]))
+                print(self.__buff.get_elems())
                 self.__save_stock_data(text)
                 break
         self.__movements = self.__movement_check()
@@ -85,10 +87,10 @@ class Optimizator():
             return None
 
     def movement(self, id1, id2):
-        """Перемещение"""
+        """Перемещение из ячейки <id2> в <id1>"""
         ind1 = None
         ind2 = None
-        text = self.__load_stock_data
+        text = self.__load_stock_data()
         for i in range(len(text)):
             if str(text[i]) == id1:
                 ind1 = i
@@ -101,3 +103,5 @@ class Optimizator():
             self.__save_stock_data(text)
             self.__buff.pop(id1)
             self.__buff.pop(id2)
+            self.__save_buf()
+            self.__movements = self.__movement_check()
