@@ -1,107 +1,88 @@
-﻿from Queue import Queue, Cell
+﻿from Queue import Queue
+from Cell import Cell
+import sqlite3 as sql
 
 class Optimizator():
-    def __init__(self, file_name):
-        self.__buff = Queue()
-        self.__load_buf()
-        self.__adress = file_name
-        self.__max_quantity = 50
-        self.__movements = self.__movement_check()
-        
+    def __init__(self, db_adress, max_quantity):
+        self.__buff = {}
+        self.__max_quantity = max_quantity
+        #self.__movements = []
+        self.__db_adress = db_adress
 
-    def get(self, id, quantity):
-        """Берем из ячейки <id> количество <quantity>"""
-        text = self.__load_stock_data()
-        for i in range(0, len(text), 2):
-            if str(text[i]) == id:
-                ###Логику дописать
-                text[i + 1] = text[i + 1] - quantity
-                self.__add_in_buf(Cell(str(text[i]), text[i + 1]))
-                print(self.__buff.get_elems())
-                self.__save_stock_data(text)
-                break
-        self.__movements = self.__movement_check()
-        return
-
-    def __load_stock_data(self):
-        """База в виде файла"""
-        with open(self.__adress, "r", encoding="UTF-8") as file:
-            text = list(map(int, file.read().split()))
-        return text
-
-    def __save_stock_data(self, text):
-        """Сохраняем изменения"""
-        with open(self.__adress, "w", encoding="UTF-8") as file:
-            for i in text:
-                print(i, file = file)
-
-    def __load_buf(self):
-        """Подгружаем буфер"""
-        with open("buf.txt", "r", encoding="UTF-8") as file:
-            text = list(map(int, file.read().split()))
-        for i in range(0, len(text), 2):
-            self.__add_in_buf(Cell(str(text[i]), text[i+1]))
-
-    def __save_buf(self):
-        """Сохраняем буфер"""
-        text = self.__buff.get_elems()
-        with open("buf.txt", "w", encoding="UTF-8") as file:
-            for i in text:
-                print(f'{i[0]} \n{i[1]}', file = file)
-
-    def __add_in_buf(self, cell):
-        """Пушим в буфер ячейку с измененным количеством содержимого"""
-        self.__buff.push(cell)
-        self.__save_buf()
-
-    def get_buf(self):
-        """Смотрим какие ячейки с измененным содержимым"""
-        return self.__buff.get_elems()
-
-    def get_movements(self):
-        """ВЫнимаем возможные перемещения"""
-        if self.__movements != None:
-            return self.__movements
+    def add(self, cell):
+        """Добавляем изменения"""
+        if cell.get_type() in self.__buff.keys():
+            self.__buff[cell.get_type()].push(cell)
         else:
-            return []
-    
-    def __movement_check(self):
-        """Поиск возможных перемещений"""
-        que = self.__buff.get_elems()
-        movements = []
-        for i in que:
-            if i[1] > self.__max_quantity / 2:
-                break
-            for j in que:
-                if i[0] != j[0]:
-                    if j[1] + i[1] > self.__max_quantity:
-                        break
+            self.__buff[cell.get_type()] = Queue()
+            self.__buff[cell.get_type()].push(cell)
+
+    def erase(self, cell):
+        if cell.get_type() in self.__buff.keys():
+             self.__buff[cell.get_type()].pop(cell.get_id())
+
+    def __max_cluster(self, changes):
+        """Формирование кластера"""
+        print("Зашел в max_cluster")
+        result = []
+        quantity = 0
+        for i in changes:
+            if len(result) == 0:
+                result.append(i)
+                quantity += i[1]
+            else:
+                if quantity + i[1] <= self.__max_quantity:
+                    result.append(i)
+                    quantity += i[1]
+        print("Ввышел из max_cluster")
+        return result
+
+    def divide_into_clusters(self):
+        """Разделение на множества"""
+        print("Зашел в divide_into_clusters")
+        result = {}
+        for i in self.__buff.keys():
+            changes = self.__buff[i].get_elems()
+            clusters = []
+            while len(changes) > 0:
+                cluster = self.__max_cluster(changes)
+                clusters.append(cluster)
+                for j in cluster:
+                    indx = self.__find_indx(changes, j)
+                    if indx != None:
+                        changes.pop(indx)
+            result[i] = clusters
+        print("Ввышел из divide_into_clusters")
+        return result
+   
+    def swap(self, clusters):
+        """Сжатие множеств"""
+        print("Зашел в swap")
+        db = sql.connect(self.__db_adress)
+        cursor = db.cursor()
+        for ctype in clusters.keys():
+            for cluster in clusters[ctype]:
+                if len(cluster) > 1:
+                    new_quant = cluster[0][1]
+                    for i in range(1, len(cluster)):
+                        new_quant += cluster[i][1]
+                        cursor.execute("UPDATE stock SET quantity = ? WHERE id = ?", (0, cluster[i][0]))
+                        cursor.execute("UPDATE stock SET type = ? WHERE id = ?", ('None', cluster[i][0]))
+                        db.commit()
+                        self.__buff[ctype].pop(cluster[i][0])
+                    cursor.execute("UPDATE stock SET quantity = ? WHERE id = ?", (new_quant, cluster[0][0]))
+                    db.commit()
+                    if new_quant < self.__max_quantity:
+                        self.__buff[ctype].pop(cluster[0][0])
+                        self.__buff[ctype].push(Cell(cluster[0][0], new_quant, ctype))
                     else:
-                        movement = []
-                        movement.append(i[0])
-                        movement.append(j[0])
-                        movements.append(movement)
-        if len(movements) != 0:
-            return movements
-        else: 
-            return None
+                        self.__buff[ctype].pop(cluster[0][0])
+        print("Ввышел из swap")
 
-    def movement(self, id1, id2):
-        """Перемещение из ячейки <id2> в <id1>"""
-        ind1 = None
-        ind2 = None
-        text = self.__load_stock_data()
-        for i in range(len(text)):
-            if str(text[i]) == id1:
-                ind1 = i
-            if str(text[i]) == id2:
-                ind2 = i
-        if ind1 == None or ind2 == None:
-            return
-        else:
-            text[ind1 + 1], text[ind2 + 1] = text[ind1 + 1] + text[ind2 + 1], 0
-            self.__save_stock_data(text)
-            self.__buff.pop(id1)
-            self.__buff.pop(id2)
-            self.__save_buf()
-            self.__movements = self.__movement_check()
+    def __find_indx(self, changes, claster):
+        print("Зашел в find_indx")
+        for i in range(len(changes)):
+            if changes[i] == claster:
+                return i
+        print("Ввышел из find_indx")
+        return None

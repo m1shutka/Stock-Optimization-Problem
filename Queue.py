@@ -1,14 +1,4 @@
-﻿class Cell():
-    def __init__(self, id, quantity):
-        """Класс ячейка"""
-        self.__id = id
-        self.__quantity = quantity
-
-    def get_id(self):
-        return self.__id
-
-    def get_quantity(self):
-        return self.__quantity
+﻿from Cell import Cell
 
 class Queue():
     ###Дописать исключения
@@ -22,10 +12,10 @@ class Queue():
         if self.__ind_in_que(cell.get_id()) == None:
             for i in range(len(self.__queue)):
                 index = i
-                if cell.get_quantity() < self.__queue[i].get_quantity():
+                if cell.get_quantity() > self.__queue[i].get_quantity():
                     break;
             if index == len(self.__queue) - 1:
-                if self.__queue[index].get_quantity() > cell.get_quantity():
+                if self.__queue[index].get_quantity() < cell.get_quantity():
                     self.__queue.insert(index, cell)
                 else:
                     self.__queue.insert(index + 1, cell)
@@ -35,10 +25,6 @@ class Queue():
             self.__queue.pop(self.__ind_in_que(cell.get_id()))
             self.push(cell)
 
-    def len(self):
-        """Вычисление длины"""
-        return len(self.__queue)
-            
     def pop(self, id = None):
         """Извлекаем ячейку из буфера"""
         if id == None:
@@ -61,6 +47,10 @@ class Queue():
     def clear(self):
         """Очистка"""
         self.__queue.clear()
+        
+    def len(self):
+        """Вычисление длины"""
+        return len(self.__queue)
 
     def __ind_in_que(self, id):
         """Вычисляем индекс ячейки ао id"""
