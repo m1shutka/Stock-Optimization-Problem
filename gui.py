@@ -93,7 +93,7 @@ def set_buttons():
 
 
 if  __name__ == "__main__":
-    stock = Stock('stock.txt')
+    stock = Stock('stock.xlsx')
     root = Tk()     
     root.title("Склад")     
     root.geometry("460x240+540+270")    
