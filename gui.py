@@ -1,6 +1,5 @@
 ﻿from tkinter import *
 from tkinter import ttk
-from tkinter.messagebox import showerror, showinfo
 from Stock import Stock
 import time
 import random
@@ -94,7 +93,7 @@ def set_buttons():
 
 
 if  __name__ == "__main__":
-    stock = Stock()
+    stock = Stock('stock.txt')
     root = Tk()     
     root.title("Склад")     
     root.geometry("460x240+540+270")    
