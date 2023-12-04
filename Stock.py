@@ -9,7 +9,6 @@ class Stock():
         self.__db_adress = db_adress
         self.__db_type, self.__db_params, self.__db = self.__init_stock(self.__db_adress)
         self.__optimizator = self.__init_optimizator()
-        self.__commit()
 
     def __commit(self):
         if self.__db_type == 'db':
@@ -33,14 +32,11 @@ class Stock():
                 types.append(i[2])
             df1 = pd.DataFrame({'id':ids, 'quantity': quantities, 'type': types})
             df2 = pd.DataFrame({'i': [self.__db_params[0]], 'j': [self.__db_params[1]], 'k': [self.__db_params[2]], 'size': [self.__db_params[3]]})
-            writer = pd.ExcelWriter('stock.xlsx')
-            df1.to_excel(writer, 'stock')
-            df2.to_excel(writer, 'params') 
-            writer.save()
+            with pd.ExcelWriter(self.__db_adress, engine="xlsxwriter", mode='w') as excel_writer:
+                df1.to_excel(excel_writer, sheet_name='stock')
+                df2.to_excel(excel_writer, sheet_name='params')
 
-
-
-    def add(self, cid, cquantity, ctype):
+    def add(self, cid: str, cquantity: int, ctype: str):
         """Метод добавляющий что-то в ячейку и возвращает обновленные данные о ней"""
         if self.__db_type == 'db':
             cursor = self.__db.cursor()
@@ -66,7 +62,7 @@ class Stock():
                     else:
                         return ()
 
-    def get(self, cid, cquantity):
+    def get(self, cid: str, cquantity: int):
         """Метод для извлечения из ячейким чего-либо и возвращает обновленные данные о ячейке"""
         if self.__db_type == 'db':
             cursor = self.__db.cursor()
@@ -126,6 +122,64 @@ class Stock():
         else:
             return self.__db
 
+    def get_stock_params(self):
+        return self.__db_params
+
+    def set_stock_params(self, rows: int, height: int, width: int, size: int):
+        if self.__db_type == 'db':
+            cursor = self.__db.cursor()
+            old_stock = cursor.execute("SELECT * FROM stock").fetchall()
+            old_stock_len = len(old_stock)
+            if old_stock_len < rows*height*width:
+                for i in old_stock:
+                    cursor.execute("UPDATE stock SET quantity=? WHERE id=?", (0, i[0]))
+                    cursor.execute("UPDATE stock SET type=? WHERE id=?", ('None', i[0]))
+                while old_stock_len < rows*height*width:
+                    old_stock_len += 1
+                    new_id = str(old_stock_len)
+                    while len(new_id) < 4:
+                        new_id = '0' + new_id
+                    cursor.execute("INSERT INTO stock (id, quantity, type) VALUES (?, ?, ?)", (new_id, 0, 'None'))
+            elif old_stock_len > rows*height*width:
+                while old_stock_len > rows*height*width:
+                    old_id = str(old_stock_len)
+                    while len(old_id) < 4:
+                        old_id = '0' + old_id
+                    old_stock_len -= 1
+                    cursor.execute("DELETE FROM stock WHERE id=?", (old_id,))
+                old_stock = cursor.execute("SELECT * FROM stock").fetchall()
+                for i in old_stock:
+                    cursor.execute("UPDATE stock SET quantity=? WHERE id=?", (0, i[0]))
+                    cursor.execute("UPDATE stock SET type=? WHERE id=?", ('None', i[0]))
+            else:
+                for i in old_stock:
+                    cursor.execute("UPDATE stock SET quantity=? WHERE id=?", (0, i[0]))
+                    cursor.execute("UPDATE stock SET type=? WHERE id=?", ('None', i[0]))
+            cursor.execute("DELETE FROM params WHERE rows=?", (self.__db_params[0],))
+            cursor.execute("INSERT INTO params (rows, height, length, max_quantity) VALUES (?, ?, ?, ?)", (rows, height, width, size))
+            self.__db_params = [rows, height, width, size]
+            self.__commit()
+        else:
+            old_stock_len = len(self.__db)
+            if old_stock_len < rows*height*width:
+                for i in range(rows*height*width):
+                    if i < old_stock_len:
+                        self.__db[i][1] = 0
+                        self.__db[i][2] = 'None'
+                    else:
+                        new_id = str(i + 1)
+                        while len(new_id) < 4:
+                            new_id = '0' + new_id
+                        self.__db.append([new_id, 0, 'None'])
+            elif old_stock_len > rows*height*width:
+                while len(self.__db) > rows*height*width:
+                    self.__db.pop(len(self.__db)-1)
+                for i in range(rows*height*width):
+                        self.__db[i][1] = 0
+                        self.__db[i][2] = 'None'
+            self.__db_params = [rows, height, width, size]
+            self.__commit()
+
     def get_cell_quantity(self, cid):
         """Метод для получения из БД заполненость ячейки cid"""
         if self.__db_type == 'db':
@@ -182,15 +236,15 @@ class Stock():
             cell_id = str(df.iloc[i]['id'])
             while len(cell_id) < 4:
                 cell_id = '0' + cell_id
-            result.append([cell_id, int(df.iloc[i]['quantity']), df.iloc[i]['type']])
+            result.append([cell_id, int(df.iloc[i]['quantity']), str(df.iloc[i]['type'])])
         return params, result
 
 
     def __init_stock(self, db_adress):
         if db_adress[len(db_adress)-2:] == 'db': 
-            con = sql.connect("stock.db")
+            con = sql.connect(db_adress)
             cursor = con.cursor()
-            params = cursor.execute("SELECT * FROM params").fetchall()
+            params = cursor.execute("SELECT * FROM params").fetchone()
             return 'db', params, con
         elif db_adress[len(db_adress)-3:] == 'txt':
             params, db = self.__load_txt_db(db_adress)
